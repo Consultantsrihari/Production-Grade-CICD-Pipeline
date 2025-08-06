@@ -41,3 +41,14 @@ services:
 
 volumes:
   db-data: # This persists database data even if the container is removed
+
+# ... (services top level)
+  backend:
+    # Jenkins will build and push to this image name
+    image: srihari9963/prod-cicd-backend:latest
+    # ... rest of backend config
+
+  frontend:
+    # Jenkins will build and push to this image name
+    image: srihari9963/prod-cicd-frontend:latest
+    # ... rest of frontend config
