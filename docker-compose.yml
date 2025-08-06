@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  postgres-db:
+    image: postgres:13-alpine
+    restart: always
+    environment:
+      # In production, this password will be injected by Jenkins from AWS Secrets Manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecretpassword} 
+      POSTGRES_USER: devopsuser
+      POSTGRES_DB: microblog
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports: # Only expose for local debugging if needed, not required for inter-container communication
+      - "5432:5432"
+
+  # Backend API Service
+  backend:
+    # During local dev, we build from the Dockerfile. In prod, Jenkins will replace this with a specific image from Docker Hub.
+    build: ./backend
+    image: your-dockerhub-username/prod-cicd-backend:latest # Placeholder for production
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # This connects to the 'postgres-db' service on the internal Docker network
+      DATABASE_URL: postgres://devopsuser:${POSTGRES_PASSWORD:-supersecretpassword}@postgres-db:5432/microblog
+    depends_on:
+      - postgres-db
+
+  # Frontend Web Server Service
+  frontend:
+    build: ./frontend
+    image: your-dockerhub-username/prod-cicd-frontend:latest # Placeholder for production
+    restart: always
+    ports:
+      - "80:80" # Map host port 80 to container port 80
+    depends_on:
+      - backend
+
+volumes:
+  db-data: # This persists database data even if the container is removed
