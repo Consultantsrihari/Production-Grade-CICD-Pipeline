@@ -1,0 +1,82 @@
+pipeline {
+    // Run this pipeline on any available Jenkins agent
+    agent any
+
+    // Define environment variables to be used throughout the pipeline
+    environment {
+        // Replace with your App Server's PRIVATE IP address.
+        // Using the private IP is more secure as traffic stays within the AWS network.
+        APP_SERVER_IP = "172.31.28.57"
+        DOCKER_IMAGE_NAME = "my-node-app"
+        // The credential ID we created in the Jenkins UI
+        SSH_CREDENTIALS_ID = "app-server-key"
+    }
+
+    stages {
+        stage('1. Checkout Code') {
+            steps {
+                echo 'Checking out code from GitHub...'
+                // Get the latest code from the 'main' branch
+                git branch: 'main', url: 'https://github.com/Consultantsrihari/Production-Grade-CICD-Pipeline.git'
+            }
+        }
+
+        stage('2. Install & Test') {
+            steps {
+                echo 'Installing dependencies and running unit tests...'
+                // We run our tests inside a temporary Node.js container.
+                // This keeps our Jenkins environment clean and ensures a consistent test environment.
+                script {
+                    docker.image('node:14-alpine').inside {
+                        sh 'npm install'
+                        sh 'npm test'
+                    }
+                }
+            }
+        }
+
+        stage('3. Build Docker Image') {
+            steps {
+                echo 'Building the Docker image...'
+                script {
+                    // The 'sh' step allows us to run shell commands
+                    sh "docker build -t ${simple node application} ."
+                }
+            }
+        }
+
+        stage('4. Deploy to EC2') {
+            steps {
+                echo "Deploying to App Server at ${3.88.106.87}..."
+                // Use the SSH Agent plugin to securely connect to our App Server
+                // The block will have access to the credentials specified by SSH_CREDENTIALS_ID
+                sshagent([ec2-ssh-key]) {
+                    sh """
+                        # The -o StrictHostKeyChecking=no option prevents SSH from asking for interactive confirmation.
+                        ssh -o StrictHostKeyChecking=no ec2-user@${3.88.106.87} '
+                            # Stop and remove the old container, if it exists.
+                            # The '|| true' part ensures the command doesn't fail if the container isn't running.
+                            docker stop ${} || true
+                            docker rm ${simple node application} || true
+
+                            # Run the new container from the image we just built.
+                            # -d runs the container in detached mode (in the background).
+                            # -p 3000:3000 maps port 3000 on the host to port 3000 in the container.
+                            docker run -d --name ${simple node application} -p 3000:3000 ${simple node application}
+                        '
+                    """
+                }
+            }
+        }
+    }
+
+    // The 'post' block runs after all stages are complete
+    post {
+        success {
+            echo 'Pipeline finished successfully! The new version is live.'
+        }
+        failure {
+            echo 'Pipeline failed. Please check the logs.'
+        }
+    }
+}
